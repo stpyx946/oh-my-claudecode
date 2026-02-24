@@ -28,6 +28,7 @@ import {
 } from "../hud/background-tasks.js";
 import { readHudState, writeHudState } from "../hud/state.js";
 import { loadConfig } from "../config/loader.js";
+import { shouldForceRalplan, validateExecutionArtifacts, isExecutionSkill } from "../features/pre-execution-gate.js";
 import {
   ULTRAWORK_MESSAGE,
   ULTRATHINK_MESSAGE,
@@ -289,6 +290,16 @@ async function processKeywordDetector(input: HookInput): Promise<HookOutput> {
   const promptText = getPromptText(input);
   if (!promptText) {
     return { continue: true };
+  }
+
+  if (shouldForceRalplan(promptText)) {
+    return {
+      continue: true,
+      message:
+        `[PRE-EXECUTION GATE] Request looks underspecified. Route through ralplan first.\n` +
+        `Next step: /oh-my-claudecode:ralplan --interactive "${promptText.replace(/"/g, '\\"')}"\n` +
+        `Required before execution: explicit PRD Scope + Test Spec.`,
+    };
   }
 
   // Remove code blocks to prevent false positives
@@ -869,6 +880,21 @@ export const _notify = {
  */
 function processPreToolUse(input: HookInput): HookOutput {
   const directory = resolveToWorktreeRoot(input.directory);
+
+  // Enforced pre-execution gate: execution skills require PRD Scope + Test Spec artifacts.
+  if ((input.toolName || '').toLowerCase() === 'skill') {
+    const skillName = getInvokedSkillName(input.toolInput);
+    if (isExecutionSkill(skillName)) {
+      const validation = validateExecutionArtifacts(directory);
+      if (!validation.ok) {
+        return {
+          continue: false,
+          reason: 'PRE_EXECUTION_GATE_FAILED',
+          message: validation.message,
+        };
+      }
+    }
+  }
 
   // Check delegation enforcement FIRST
   const enforcementResult = processOrchestratorPreTool({

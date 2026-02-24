@@ -105,7 +105,9 @@ Jumping into code without understanding requirements leads to rework, scope cree
 
 Every plan includes:
 - Requirements Summary
+- **PRD Scope** (explicit in-scope / out-of-scope boundaries)
 - Acceptance Criteria (testable)
+- **Test Spec** (unit/integration/e2e strategy with concrete commands)
 - Implementation Steps (with file references)
 - Risks and Mitigations
 - Verification Steps
@@ -191,6 +193,7 @@ Why bad: Decision fatigue. Present one option with trade-offs, get reaction, the
 - [ ] No vague terms without metrics ("fast" -> "p99 < 200ms")
 - [ ] Plan saved to `.omc/plans/`
 - [ ] In consensus mode with `--interactive`: user explicitly approved before any execution; without `--interactive`: plan output only, no auto-execution
+- [ ] Plan contains explicit `## PRD Scope` and `## Test Spec` sections before any execution handoff
 </Final_Checklist>
 
 <Advanced>

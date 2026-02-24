@@ -49,4 +49,13 @@ The consensus workflow:
 
 > **Important:** Steps 3 and 4 MUST run sequentially. Do NOT issue both agent Task calls in the same parallel batch. Always await the Architect result before issuing the Critic Task.
 
+## Required Artifacts (Pre-Execution Gate)
+
+The plan produced by ralplan **MUST** contain these sections before any execution handoff (ralph/team/autopilot) is permitted:
+
+- `## PRD Scope` — explicit in-scope / out-of-scope boundaries
+- `## Test Spec` — unit/integration/e2e strategy with concrete commands
+
+Without both sections, the pre-execution gate will block Skill invocations to execution modes. See `docs/RALPLAN_EXECUTION_GATE.md` for details.
+
 Follow the Plan skill's full documentation for consensus mode details.
