@@ -7395,7 +7395,19 @@ function install(options = {}) {
       }
       if (hudScriptPath) {
         const nodeBin = resolveNodeBinary();
-        const statusLineCommand = '"' + nodeBin + '" "' + hudScriptPath.replace(/\\/g, "/") + '"';
+        const absoluteCommand = '"' + nodeBin + '" "' + hudScriptPath.replace(/\\/g, "/") + '"';
+        let statusLineCommand = absoluteCommand;
+        if (!isWindows()) {
+          try {
+            const findNodeSrc = (0, import_path36.join)(__dirname, "..", "..", "scripts", "find-node.sh");
+            const findNodeDest = (0, import_path36.join)(HUD_DIR, "find-node.sh");
+            (0, import_fs28.copyFileSync)(findNodeSrc, findNodeDest);
+            (0, import_fs28.chmodSync)(findNodeDest, 493);
+            statusLineCommand = "sh $HOME/.claude/hud/find-node.sh $HOME/.claude/hud/omc-hud.mjs";
+          } catch {
+            statusLineCommand = "node $HOME/.claude/hud/omc-hud.mjs";
+          }
+        }
         const needsMigration = typeof existingSettings.statusLine === "string" && isOmcStatusLine(existingSettings.statusLine);
         if (!existingSettings.statusLine || needsMigration) {
           existingSettings.statusLine = {
@@ -21882,14 +21894,24 @@ function buildWorkerStartCommand(config2) {
       return `${key}=${shellEscape(value)}`;
     });
     const shellName2 = shellNameFromPath(shell) || "bash";
-    const execArgsCommand = shellName2 === "fish" ? "exec $argv" : 'exec "$@"';
-    const rcFile2 = process.env.HOME ? `${process.env.HOME}/.${shellName2}rc` : "";
-    const script = shouldSourceRc && rcFile2 ? `[ -f ${shellEscape(rcFile2)} ] && . ${shellEscape(rcFile2)}; ${execArgsCommand}` : execArgsCommand;
+    const isFish2 = shellName2 === "fish";
+    const execArgsCommand = isFish2 ? "exec $argv" : 'exec "$@"';
+    let rcFile2 = "";
+    if (process.env.HOME) {
+      rcFile2 = isFish2 ? `${process.env.HOME}/.config/fish/config.fish` : `${process.env.HOME}/.${shellName2}rc`;
+    }
+    let script;
+    if (isFish2) {
+      script = shouldSourceRc && rcFile2 ? `test -f ${shellEscape(rcFile2)}; and source ${shellEscape(rcFile2)}; ${execArgsCommand}` : execArgsCommand;
+    } else {
+      script = shouldSourceRc && rcFile2 ? `[ -f ${shellEscape(rcFile2)} ] && . ${shellEscape(rcFile2)}; ${execArgsCommand}` : execArgsCommand;
+    }
+    const shellFlags = isFish2 ? ["-l", "-c"] : ["-lc"];
     return [
       "env",
       ...envAssignments,
       shell,
-      "-lc",
+      ...shellFlags,
       script,
       "--",
       ...launchWords
@@ -21900,8 +21922,15 @@ function buildWorkerStartCommand(config2) {
     return `${k}=${shellEscape(v)}`;
   }).join(" ");
   const shellName = shellNameFromPath(shell) || "bash";
-  const rcFile = process.env.HOME ? `${process.env.HOME}/.${shellName}rc` : "";
-  const sourceCmd = shouldSourceRc && rcFile ? `[ -f "${rcFile}" ] && source "${rcFile}"; ` : "";
+  const isFish = shellName === "fish";
+  let rcFile = "";
+  if (process.env.HOME) {
+    rcFile = isFish ? `${process.env.HOME}/.config/fish/config.fish` : `${process.env.HOME}/.${shellName}rc`;
+  }
+  let sourceCmd = "";
+  if (shouldSourceRc && rcFile) {
+    sourceCmd = isFish ? `test -f "${rcFile}"; and source "${rcFile}"; ` : `[ -f "${rcFile}" ] && source "${rcFile}"; `;
+  }
   return `env ${envString} ${shell} -c "${sourceCmd}exec ${launchWords[0]}"`;
 }
 function validateTmux() {

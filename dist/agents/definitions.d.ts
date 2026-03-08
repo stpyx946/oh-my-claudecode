@@ -7,7 +7,7 @@
  * 3. getAgentDefinitions() for agent registry
  * 4. omcSystemPrompt for the main orchestrator
  */
-import type { AgentConfig, ModelType } from '../shared/types.js';
+import type { AgentConfig, PluginConfig } from '../shared/types.js';
 import { loadAgentPrompt } from './utils.js';
 export { architectAgent } from './architect.js';
 export { designerAgent } from './designer.js';
@@ -73,13 +73,14 @@ export declare const tddGuideAgentAlias: AgentConfig;
  */
 export declare function getAgentDefinitions(options?: {
     overrides?: Partial<Record<string, Partial<AgentConfig>>>;
+    config?: PluginConfig;
 }): Record<string, {
     description: string;
     prompt: string;
     tools?: string[];
     disallowedTools?: string[];
-    model?: ModelType;
-    defaultModel?: ModelType;
+    model?: string;
+    defaultModel?: string;
 }>;
 /**
  * OMC System Prompt - The main orchestrator

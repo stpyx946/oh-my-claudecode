@@ -8,6 +8,7 @@
  * 4. omcSystemPrompt for the main orchestrator
  */
 import { loadAgentPrompt, parseDisallowedTools } from './utils.js';
+import { loadConfig } from '../config/loader.js';
 // Re-export base agents from individual files (rebranded names)
 export { architectAgent } from './architect.js';
 export { designerAgent } from './designer.js';
@@ -124,6 +125,30 @@ export const codeSimplifierAgent = {
  * @deprecated Use test-engineer agent instead
  */
 export const tddGuideAgentAlias = testEngineerAgent;
+const AGENT_CONFIG_KEY_MAP = {
+    explore: 'explore',
+    analyst: 'analyst',
+    planner: 'planner',
+    architect: 'architect',
+    debugger: 'debugger',
+    executor: 'executor',
+    verifier: 'verifier',
+    'security-reviewer': 'securityReviewer',
+    'code-reviewer': 'codeReviewer',
+    'test-engineer': 'testEngineer',
+    designer: 'designer',
+    writer: 'writer',
+    'qa-tester': 'qaTester',
+    scientist: 'scientist',
+    'git-master': 'gitMaster',
+    'code-simplifier': 'codeSimplifier',
+    critic: 'critic',
+    'document-specialist': 'documentSpecialist',
+};
+function getConfiguredAgentModel(name, config) {
+    const key = AGENT_CONFIG_KEY_MAP[name];
+    return key ? config.agents?.[key]?.model : undefined;
+}
 // ============================================================
 // AGENT REGISTRY
 // ============================================================
@@ -180,17 +205,21 @@ export function getAgentDefinitions(options) {
         // ============================================================
         'document-specialist': documentSpecialistAgent
     };
+    const resolvedConfig = options?.config ?? loadConfig();
     const result = {};
-    for (const [name, config] of Object.entries(agents)) {
+    for (const [name, agentConfig] of Object.entries(agents)) {
         const override = options?.overrides?.[name];
-        const disallowedTools = config.disallowedTools ?? parseDisallowedTools(name);
+        const configuredModel = getConfiguredAgentModel(name, resolvedConfig);
+        const disallowedTools = agentConfig.disallowedTools ?? parseDisallowedTools(name);
+        const resolvedModel = override?.model ?? configuredModel ?? agentConfig.model;
+        const resolvedDefaultModel = override?.defaultModel ?? agentConfig.defaultModel;
         result[name] = {
-            description: override?.description ?? config.description,
-            prompt: override?.prompt ?? config.prompt,
-            tools: override?.tools ?? config.tools,
+            description: override?.description ?? agentConfig.description,
+            prompt: override?.prompt ?? agentConfig.prompt,
+            tools: override?.tools ?? agentConfig.tools,
             disallowedTools,
-            model: (override?.model ?? config.model),
-            defaultModel: (override?.defaultModel ?? config.defaultModel)
+            model: resolvedModel,
+            defaultModel: resolvedDefaultModel,
         };
     }
     return result;

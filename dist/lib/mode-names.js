@@ -54,6 +54,7 @@ export const SESSION_END_MODE_STATE_FILES = [
     { file: MODE_STATE_FILE_MAP[MODE_NAMES.RALPH], mode: MODE_NAMES.RALPH },
     { file: MODE_STATE_FILE_MAP[MODE_NAMES.ULTRAWORK], mode: MODE_NAMES.ULTRAWORK },
     { file: MODE_STATE_FILE_MAP[MODE_NAMES.ULTRAQA], mode: MODE_NAMES.ULTRAQA },
+    { file: 'skill-active-state.json', mode: 'skill-active' },
 ];
 /**
  * Modes detected by session-end for metrics reporting.
