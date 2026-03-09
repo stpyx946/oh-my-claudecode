@@ -90,8 +90,6 @@ export function getOMCConfig() {
             notificationProfiles: config.notificationProfiles,
             hudEnabled: config.hudEnabled,
             autoUpgradePrompt: config.autoUpgradePrompt,
-            nodeBinary: config.nodeBinary,
-            omcSetup: config.omcSetup,
         };
     }
     catch {

@@ -246,10 +246,6 @@ export function checkConfigIssues() {
             'stopHookCallbacks',
             'notifications',
             'autoUpgradePrompt',
-            'hudEnabled',
-            'nodeBinary',
-            'notificationProfiles',
-            'omcSetup',
         ]);
         for (const field of Object.keys(config)) {
             if (!knownFields.has(field)) {

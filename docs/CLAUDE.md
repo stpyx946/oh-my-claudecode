@@ -82,6 +82,4 @@ State: `.omc/state/`, `.omc/state/sessions/{sessionId}/`, `.omc/notepad.md`, `.o
 
 Say "setup omc" or run `/oh-my-claudecode:omc-setup`.
 
-If `rtk` is installed, OMC setup can also initialize and verify its Claude Code token-optimization integration for common shell commands (this patches Claude Code settings / the `PreToolUse` hook): https://github.com/rtk-ai/rtk
-
 <!-- OMC:END -->

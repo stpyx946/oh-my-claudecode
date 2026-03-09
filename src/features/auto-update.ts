@@ -166,11 +166,6 @@ export interface OMCConfig {
   /** Absolute path to the Node.js binary detected at setup time.
    *  Used by find-node.sh so hooks work for nvm/fnm users where node is not on PATH. */
   nodeBinary?: string;
-  /** Setup wizard preferences and optional integrations. */
-  omcSetup?: {
-    /** Enable the optional rtk integration step during omc-setup (default: true). */
-    rtk?: boolean;
-  };
 }
 
 /**
@@ -198,8 +193,6 @@ export function getOMCConfig(): OMCConfig {
       notificationProfiles: config.notificationProfiles,
       hudEnabled: config.hudEnabled,
       autoUpgradePrompt: config.autoUpgradePrompt,
-      nodeBinary: config.nodeBinary,
-      omcSetup: config.omcSetup,
     };
   } catch {
     // If config file is invalid, default to disabled for security

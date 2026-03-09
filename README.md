@@ -42,12 +42,6 @@ autopilot: build a REST API for managing tasks
 
 That's it. Everything else is automatic.
 
-### Optional: rtk for lower token usage
-
-We recommend [rtk](https://github.com/rtk-ai/rtk), a lightweight CLI proxy and token optimizer for AI coding agents, including Claude Code. It optimizes common development commands (`git`, `cat`, `grep`, test runners, etc.) to reduce token consumption.
-
-If `rtk` is already installed, `/omc-setup` will detect it and use RTK’s documented global-init flow (`rtk init -g --auto-patch`), then verify the result with `rtk init --show`. Since that step patches Claude Code settings / the `PreToolUse` hook, users with existing hook customizations should review the merge carefully or use `rtk init -g --no-patch`. If it is not installed, setup will show install instructions as an optional recommendation.
-
 ### Not Sure Where to Start?
 
 If you're uncertain about requirements, have a vague idea, or want to micromanage the design:

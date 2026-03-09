@@ -8,70 +8,7 @@
 grep -q "oh-my-claudecode" ~/.claude/settings.json && echo "Plugin verified" || echo "Plugin NOT found - run: claude /install-plugin oh-my-claudecode"
 ```
 
-## Step 3.2: Configure rtk Token Optimization (Recommended, Optional)
-
-`rtk` is an optional CLI proxy and token optimizer for AI coding agents, with documented Claude Code integration. It can reduce token usage on common development commands (`git`, `cat`, `grep`, test runners, etc.). This step is **recommended but never required**.
-
-Before doing anything, check whether the user disabled this setup step in `~/.claude/.omc-config.json`:
-
-```bash
-CONFIG_FILE="$HOME/.claude/.omc-config.json"
-RTK_ENABLED="true"
-
-if [ -f "$CONFIG_FILE" ]; then
-  RTK_ENABLED=$(jq -r '.omcSetup.rtk // true' "$CONFIG_FILE" 2>/dev/null || echo "true")
-fi
-
-if [ "$RTK_ENABLED" = "false" ]; then
-  echo "Skipping rtk integration (omcSetup.rtk=false)"
-else
-  if command -v rtk >/dev/null 2>&1; then
-    RTK_VERSION=$(rtk --version 2>/dev/null | head -1)
-    [ -n "$RTK_VERSION" ] || RTK_VERSION="installed"
-    echo "rtk detected: $RTK_VERSION"
-    if rtk init -g --auto-patch 2>/dev/null; then
-      echo "rtk global init completed"
-      RTK_SHOW=$(rtk init --show 2>/dev/null || true)
-      if [ -n "$RTK_SHOW" ]; then
-        echo "$RTK_SHOW"
-      else
-        echo "WARNING: rtk init completed but Claude Code hook verification output was empty."
-      fi
-    else
-      echo "WARNING: rtk detected but automatic global init did not complete. You can run it manually later."
-    fi
-  else
-    echo "rtk not detected (optional but recommended for token savings)"
-    echo ""
-    echo "Install options:"
-    echo "  macOS:   brew install rtk"
-    echo "  Linux:   curl -fsSL https://raw.githubusercontent.com/rtk-ai/rtk/refs/heads/master/install.sh | sh"
-    echo "  Windows: https://github.com/rtk-ai/rtk/releases"
-    echo ""
-    echo "After installing, run: rtk init -g --auto-patch"
-  fi
-fi
-```
-
-**Important**:
-- Never fail setup just because `rtk` is missing or `rtk init --global` fails.
-- `rtk init -g --auto-patch` is the documented fully automatic global-init path. `rtk init --global` / `rtk init -g` may still prompt before patching Claude Code settings.
-- `rtk` may patch `~/.claude/settings.json` and install a Claude Code `PreToolUse` hook, so users with existing custom hooks should review/merge carefully.
-- After automatic init, review the `rtk init --show` output. Only describe the Claude Code hook as active if that verification output confirms it.
-- If the user wants to avoid automatic settings patching, they can run `rtk init -g --no-patch` manually later.
-- If the user wants to disable this recommended step permanently, store:
-
-```json
-{
-  "omcSetup": {
-    "rtk": false
-  }
-}
-```
-
-in `~/.claude/.omc-config.json`.
-
-## Step 3.3: Offer MCP Server Configuration
+## Step 3.2: Offer MCP Server Configuration
 
 MCP servers extend Claude Code with additional tools (web search, GitHub, etc.).
 
@@ -84,7 +21,7 @@ If yes, invoke the mcp-setup skill:
 
 If no, skip to next step.
 
-## Step 3.4: Configure Agent Teams (Optional)
+## Step 3.3: Configure Agent Teams (Optional)
 
 Agent teams are an experimental Claude Code feature that lets you spawn N coordinated agents working on a shared task list with inter-agent messaging. **Teams are disabled by default** and require enabling via `settings.json`.
 
@@ -100,7 +37,7 @@ Use AskUserQuestion:
 
 ### If User Chooses YES:
 
-#### 3.4.1: Enable Agent Teams in settings.json
+#### 3.3.1: Enable Agent Teams in settings.json
 
 **CRITICAL**: Agent teams require `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS` to be set in `~/.claude/settings.json`. This must be done carefully to preserve existing user settings.
 
@@ -143,7 +80,7 @@ fi
 
 **IMPORTANT**: The Edit tool is preferred for modifying settings.json when possible, since it preserves formatting and comments. The jq approach above is the fallback for when the file needs structural merging.
 
-#### 3.4.2: Configure Teammate Display Mode
+#### 3.3.2: Configure Teammate Display Mode
 
 Use AskUserQuestion:
 
@@ -165,7 +102,7 @@ jq --arg mode "TEAMMATE_MODE" '. + {teammateMode: $mode}' "$SETTINGS_FILE" > "${
 echo "Teammate display mode set to: TEAMMATE_MODE"
 ```
 
-#### 3.4.3: Configure Team Defaults in omc-config
+#### 3.3.3: Configure Team Defaults in omc-config
 
 Use AskUserQuestion with multiple questions:
 

@@ -26,7 +26,7 @@ vi.mock('../features/builtin-skills/skills.js', () => ({
     },
 }));
 // Import after mock setup
-import { checkHookConflicts, checkClaudeMdStatus, checkLegacySkills, checkConfigIssues, runConflictCheck } from '../cli/commands/doctor-conflicts.js';
+import { checkHookConflicts, checkClaudeMdStatus, checkLegacySkills, runConflictCheck } from '../cli/commands/doctor-conflicts.js';
 describe('doctor-conflicts: hook ownership classification', () => {
     let cwdSpy;
     beforeEach(() => {
@@ -366,40 +366,6 @@ describe('doctor-conflicts: legacy skills collision check (issue #1101)', () => 
         const report = runConflictCheck();
         expect(report.legacySkills).toHaveLength(1);
         expect(report.hasConflicts).toBe(true);
-    });
-});
-describe('doctor-conflicts: config field allowlist', () => {
-    let cwdSpy;
-    beforeEach(() => {
-        for (const dir of [TEST_CLAUDE_DIR, TEST_PROJECT_DIR]) {
-            if (existsSync(dir)) {
-                rmSync(dir, { recursive: true, force: true });
-            }
-        }
-        mkdirSync(TEST_CLAUDE_DIR, { recursive: true });
-        mkdirSync(TEST_PROJECT_CLAUDE_DIR, { recursive: true });
-        cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue(TEST_PROJECT_DIR);
-    });
-    afterEach(() => {
-        cwdSpy.mockRestore();
-        for (const dir of [TEST_CLAUDE_DIR, TEST_PROJECT_DIR]) {
-            if (existsSync(dir)) {
-                rmSync(dir, { recursive: true, force: true });
-            }
-        }
-    });
-    it('accepts omcSetup.rtk and other current top-level config fields', () => {
-        writeFileSync(join(TEST_CLAUDE_DIR, '.omc-config.json'), JSON.stringify({
-            silentAutoUpdate: false,
-            hudEnabled: true,
-            nodeBinary: '/usr/local/bin/node',
-            notificationProfiles: {},
-            omcSetup: {
-                rtk: false,
-            },
-        }, null, 2));
-        const issues = checkConfigIssues();
-        expect(issues.unknownFields).toEqual([]);
     });
 });
 //# sourceMappingURL=doctor-conflicts.test.js.map

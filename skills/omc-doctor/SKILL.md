@@ -24,32 +24,7 @@ npm view oh-my-claudecode version 2>/dev/null || echo "Latest: (unavailable)"
 - If INSTALLED != LATEST: WARN - outdated plugin
 - If multiple versions exist: WARN - stale cache
 
-### Step 2: Check rtk Token Optimization (Recommended)
-
-```bash
-if command -v rtk >/dev/null 2>&1; then
-  RTK_VERSION=$(rtk --version 2>/dev/null | head -1)
-  [ -n "$RTK_VERSION" ] || RTK_VERSION="installed"
-  echo "✅ rtk installed ($RTK_VERSION)"
-  RTK_SHOW=$(rtk init --show 2>/dev/null || true)
-  if [ -n "$RTK_SHOW" ]; then
-    echo "$RTK_SHOW"
-  else
-    echo "⚠️ rtk installed but Claude Code hook status could not be verified"
-  fi
-else
-  echo "⚠️ rtk not installed (recommended for token savings)"
-fi
-```
-
-**Diagnosis**:
-- If installed: OK - show the detected version
-- If `rtk init --show` confirms the Claude Code hook is installed/executable: OK
-- If `rtk` is installed but the hook is not registered or verification is inconclusive: WARN - recommend `rtk init -g --auto-patch`
-- If missing: WARN - recommendation only, never a setup failure
-- Note: `rtk init --global` patches Claude Code settings / the `PreToolUse` hook, so users with existing hook customizations should review merges carefully
-
-### Step 3: Check for Legacy Hooks in settings.json
+### Step 2: Check for Legacy Hooks in settings.json
 
 Read both `~/.claude/settings.json` (profile-level) and `./.claude/settings.json` (project-level) and check if there's a `"hooks"` key with entries like:
 - `bash $HOME/.claude/hooks/keyword-detector.sh`
@@ -59,7 +34,7 @@ Read both `~/.claude/settings.json` (profile-level) and `./.claude/settings.json
 **Diagnosis**:
 - If found: CRITICAL - legacy hooks causing duplicates
 
-### Step 4: Check for Legacy Bash Hook Scripts
+### Step 3: Check for Legacy Bash Hook Scripts
 
 ```bash
 ls -la ~/.claude/hooks/*.sh 2>/dev/null
@@ -68,7 +43,7 @@ ls -la ~/.claude/hooks/*.sh 2>/dev/null
 **Diagnosis**:
 - If `keyword-detector.sh`, `persistent-mode.sh`, `session-start.sh`, or `stop-continuation.sh` exist: WARN - legacy scripts (can cause confusion)
 
-### Step 5: Check CLAUDE.md
+### Step 4: Check CLAUDE.md
 
 ```bash
 # Check if CLAUDE.md exists
@@ -93,7 +68,7 @@ grep -o "CLAUDE-[^ )]*\.md" ~/.claude/CLAUDE.md 2>/dev/null
 - If `<!-- OMC:START -->` found in a companion file (e.g. `CLAUDE-omc.md`): OK - file-split pattern detected
 - If no OMC markers in CLAUDE.md or any companion file: WARN - outdated CLAUDE.md
 
-### Step 6: Check for Stale Plugin Cache
+### Step 5: Check for Stale Plugin Cache
 
 ```bash
 # Count versions in cache (cross-platform)
@@ -103,7 +78,7 @@ node -e "const p=require('path'),f=require('fs'),h=require('os').homedir(),d=pro
 **Diagnosis**:
 - If > 1 version: WARN - multiple cached versions (cleanup recommended)
 
-### Step 7: Check for Legacy Curl-Installed Content
+### Step 6: Check for Legacy Curl-Installed Content
 
 Check for legacy agents, commands, and skills installed via curl (before plugin system).
 **Important**: Only flag files whose names match actual plugin-provided names. Do NOT flag user's custom agents/commands/skills that are unrelated to OMC.
@@ -151,7 +126,6 @@ After running all checks, output a report:
 | Check | Status | Details |
 |-------|--------|---------|
 | Plugin Version | OK/WARN/CRITICAL | ... |
-| rtk | OK/WARN | ... |
 | Legacy Hooks (settings.json) | OK/CRITICAL | ... |
 | Legacy Scripts (~/.claude/hooks/) | OK/WARN | ... |
 | CLAUDE.md | OK/WARN/CRITICAL | ... |
