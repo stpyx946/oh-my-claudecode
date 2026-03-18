@@ -12,6 +12,29 @@ vi.mock('node:child_process', async (importOriginal) => {
     ...actual,
     execFileSync: vi.fn(),
   };
+
+  it('routes seeded top-level flags through guided setup with seed args', async () => {
+    vi.mocked(execFileSync).mockReturnValue('/repo\n' as never);
+    guidedAutoresearchSetupMock.mockResolvedValue({
+      missionDir: '/repo/missions/docs-run',
+      slug: 'docs-run',
+    });
+
+    const cwdSpy = vi.spyOn(process, 'cwd').mockReturnValue('/repo');
+
+    try {
+      await autoresearchCommand(['--topic', 'Improve docs', '--evaluator', 'node eval.js', '--slug', 'docs-run']);
+    } finally {
+      cwdSpy.mockRestore();
+    }
+
+    expect(guidedAutoresearchSetupMock).toHaveBeenCalledWith('/repo', {
+      topic: 'Improve docs',
+      evaluatorCommand: 'node eval.js',
+      slug: 'docs-run',
+    });
+    expect(spawnAutoresearchTmuxMock).toHaveBeenCalledWith('/repo/missions/docs-run', 'docs-run');
+  });
 });
 
 vi.mock('../autoresearch-guided.js', async (importOriginal) => {
@@ -36,12 +59,20 @@ describe('normalizeAutoresearchClaudeArgs', () => {
 });
 
 describe('parseAutoresearchArgs', () => {
-  it('defaults to interview-first guided mode with no args', () => {
+  it('defaults to intake-first guided mode with no args', () => {
     const parsed = parseAutoresearchArgs([]);
     expect(parsed.guided).toBe(true);
     expect(parsed.missionDir).toBeNull();
     expect(parsed.runId).toBeNull();
     expect(parsed.claudeArgs).toEqual([]);
+  });
+
+  it('treats top-level topic/evaluator flags as seeded intake input', () => {
+    const parsed = parseAutoresearchArgs(['--topic', 'Improve docs', '--evaluator', 'node eval.js', '--slug', 'docs-run']);
+    expect(parsed.guided).toBe(true);
+    expect(parsed.seedArgs?.topic).toBe('Improve docs');
+    expect(parsed.seedArgs?.evaluatorCommand).toBe('node eval.js');
+    expect(parsed.seedArgs?.slug).toBe('docs-run');
   });
 
   it('parses bypass mode with mission and sandbox flags', () => {
@@ -99,11 +130,13 @@ describe('parseAutoresearchArgs', () => {
     expect(parsed.runId).toBe('my-run-id');
   });
 
-  it('parses --help', () => {
+  it('parses --help and advertises intake-first behavior', () => {
     const parsed = parseAutoresearchArgs(['--help']);
     expect(parsed.missionDir).toBe('--help');
-    expect(AUTORESEARCH_HELP).toContain('Claude setup + background launch');
-    expect(AUTORESEARCH_HELP).toMatch(/Partial bypass is invalid/);
+    expect(AUTORESEARCH_HELP).toContain('launch interactive intake, then background launch');
+    expect(AUTORESEARCH_HELP).toContain('.omc/specs');
+    expect(AUTORESEARCH_HELP).not.toContain('Claude setup + background launch');
+    expect(AUTORESEARCH_HELP).not.toContain('CODEX_HOME');
   });
 
   it('parses init subcommand', () => {
@@ -118,9 +151,6 @@ describe('parseAutoresearchArgs', () => {
     expect(parsed.claudeArgs).toEqual(['--model', 'opus']);
   });
 
-  it('rejects flags before mission-dir', () => {
-    expect(() => parseAutoresearchArgs(['--unknown-flag'])).toThrow(/mission-dir must be the first positional argument/);
-  });
 });
 
 
@@ -146,7 +176,7 @@ describe('autoresearchCommand', () => {
       cwdSpy.mockRestore();
     }
 
-    expect(guidedAutoresearchSetupMock).toHaveBeenCalledWith('/repo');
+    expect(guidedAutoresearchSetupMock).toHaveBeenCalledWith('/repo', undefined);
     expect(spawnAutoresearchTmuxMock).toHaveBeenCalledWith('/repo/missions/demo', 'demo');
   });
 });
