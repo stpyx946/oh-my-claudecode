@@ -25,7 +25,7 @@ const KEYWORD_PATTERNS = {
     ultrathink: /\b(ultrathink)\b|(울트라씽크)/i,
     deepsearch: /\b(deepsearch)\b|\bsearch\s+the\s+codebase\b|\bfind\s+in\s+(the\s+)?codebase\b|(딥\s?서치)/i,
     analyze: /\b(deep[\s-]?analyze|deepanalyze)\b|(딥\s?분석)/i,
-    'deep-interview': /\b(deep[\s-]interview|ouroboros)\b|(딥\s?인터뷰)/i,
+    'deep-interview': /\b(deep[\s-]interview|ouroboros)\b|(딥인터뷰)/i,
     ccg: /\b(ccg|claude-codex-gemini)\b|(씨씨지)/i,
     codex: /\b(ask|use|delegate\s+to)\s+(codex|gpt)\b/i,
     gemini: /\b(ask|use|delegate\s+to)\s+gemini\b/i
@@ -77,7 +77,7 @@ export function sanitizeForKeywordDetection(text) {
 }
 const INFORMATIONAL_INTENT_PATTERNS = [
     /\b(?:what(?:'s|\s+is)|what\s+are|how\s+(?:to|do\s+i)\s+use|explain|explanation|tell\s+me\s+about|describe)\b/i,
-    /(?:뭐야|뭔데|무엇(?:이야|인가요)?|어떻게|사용법|알려\s?줘|알려줄래|소개해?\s?줘|소개\s*부탁|설명해\s?줘|뭐가\s*달라|어떤\s*기능|기능\s*(?:알려|설명|뭐)|방법\s*(?:알려|설명|뭐))/u,
+    /(?:뭐야|뭔데|무엇(?:이야|인가요)?|어떻게|설명|사용법|알려\s?줘|알려줄래|소개해?\s?줘|소개\s*부탁|설명해\s?줘|뭐가\s*달라|어떤\s*기능|기능\s*(?:알려|설명|뭐)|방법\s*(?:알려|설명|뭐))/u,
     /(?:とは|って何|使い方|説明)/u,
     /(?:什么是|怎(?:么|樣)用|如何使用|解释|說明|说明)/u,
 ];
