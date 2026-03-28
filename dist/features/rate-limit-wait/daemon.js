@@ -14,9 +14,9 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync, chmodSync, statSync, appendFileSync, renameSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { homedir } from 'os';
 import { spawn } from 'child_process';
 import { resolveDaemonModulePath } from '../../utils/daemon-module-path.js';
+import { getGlobalOmcStatePath } from '../../utils/paths.js';
 import { checkRateLimitStatus, formatRateLimitStatus, isRateLimitStatusDegraded, shouldMonitorBlockedPanes, } from './rate-limit-monitor.js';
 import { isTmuxAvailable, scanForBlockedPanes, sendResumeSequence, formatBlockedPanesSummary, } from './tmux-detector.js';
 import { isProcessAlive } from '../../platform/index.js';
@@ -27,9 +27,9 @@ const DEFAULT_CONFIG = {
     pollIntervalMs: 60 * 1000, // 1 minute
     paneLinesToCapture: 15,
     verbose: false,
-    stateFilePath: join(homedir(), '.omc', 'state', 'rate-limit-daemon.json'),
-    pidFilePath: join(homedir(), '.omc', 'state', 'rate-limit-daemon.pid'),
-    logFilePath: join(homedir(), '.omc', 'state', 'rate-limit-daemon.log'),
+    stateFilePath: getGlobalOmcStatePath('rate-limit-daemon.json'),
+    pidFilePath: getGlobalOmcStatePath('rate-limit-daemon.pid'),
+    logFilePath: getGlobalOmcStatePath('rate-limit-daemon.log'),
 };
 /** Maximum log file size before rotation (1MB) */
 const MAX_LOG_SIZE_BYTES = 1 * 1024 * 1024;
@@ -636,10 +636,11 @@ export { pollLoop };
 export async function pollLoopWithConfigFile(configPath) {
     const configContent = readFileSync(configPath, 'utf-8');
     const config = JSON.parse(configContent);
-    // Restore Date objects from JSON
-    if (config.stateFilePath) {
-        // Config is valid, proceed with poll loop
+    // Clean up the temp config file now that we've read it
+    try {
+        unlinkSync(configPath);
     }
+    catch { /* ignore cleanup errors */ }
     await pollLoop(config);
 }
 //# sourceMappingURL=daemon.js.map

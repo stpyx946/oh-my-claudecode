@@ -18,10 +18,10 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync, unlinkSync, chmodSync, statSync, appendFileSync, renameSync } from 'fs';
 import { join } from 'path';
 import { fileURLToPath } from 'url';
-import { homedir } from 'os';
 import { spawn } from 'child_process';
 import { request as httpsRequest } from 'https';
 import { resolveDaemonModulePath } from '../utils/daemon-module-path.js';
+import { getGlobalOmcStateRoot } from '../utils/paths.js';
 import { capturePaneContent, sendToPane, isTmuxAvailable, } from '../features/rate-limit-wait/tmux-detector.js';
 import { lookupByMessageId, loadAllMappings, removeMessagesByPane, pruneStale, } from './session-registry.js';
 import { parseMentionAllowedMentions } from './config.js';
@@ -55,7 +55,7 @@ const DAEMON_ENV_ALLOWLIST = [
     'SystemRoot', 'SYSTEMROOT', 'windir', 'COMSPEC',
 ];
 /** Default paths */
-const DEFAULT_STATE_DIR = join(homedir(), '.omc', 'state');
+const DEFAULT_STATE_DIR = getGlobalOmcStateRoot();
 const PID_FILE_PATH = join(DEFAULT_STATE_DIR, 'reply-listener.pid');
 const STATE_FILE_PATH = join(DEFAULT_STATE_DIR, 'reply-listener-state.json');
 const LOG_FILE_PATH = join(DEFAULT_STATE_DIR, 'reply-listener.log');

@@ -585,15 +585,15 @@ export function cleanupStaleAgents(directory) {
         releaseLock(directory);
     }
 }
-// ============================================================================
-// Query Functions
-// ============================================================================
-/**
- * Get count of active (running) agents
- */
-export function getActiveAgentCount(directory) {
+export function getActiveAgentSnapshot(directory) {
     const state = readTrackingState(directory);
-    return state.agents.filter((a) => a.status === "running").length;
+    return {
+        count: state.agents.filter((a) => a.status === "running").length,
+        lastUpdatedAt: state.last_updated,
+    };
+}
+export function getActiveAgentCount(directory) {
+    return getActiveAgentSnapshot(directory).count;
 }
 /**
  * Get agents by type

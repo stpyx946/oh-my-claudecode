@@ -1,7 +1,6 @@
 import { spawn } from 'child_process';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { readFile, rm } from 'fs/promises';
-import { homedir } from 'os';
 import { dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { executeTeamApiOperation as executeCanonicalTeamApiOperation, resolveTeamApiOperation } from '../team/api-interop.js';
@@ -11,6 +10,7 @@ import { validateTeamName } from '../team/team-name.js';
 import { monitorTeam, resumeTeam, shutdownTeam } from '../team/runtime.js';
 import { readTeamConfig } from '../team/monitor.js';
 import { isProcessAlive } from '../platform/index.js';
+import { getGlobalOmcStatePath } from '../utils/paths.js';
 const JOB_ID_PATTERN = /^omc-[a-z0-9]{1,12}$/;
 const VALID_CLI_AGENT_TYPES = new Set(['claude', 'codex', 'gemini']);
 const SUBCOMMANDS = new Set(['start', 'status', 'wait', 'cleanup', 'resume', 'shutdown', 'api', 'help', '--help', '-h']);
@@ -67,7 +67,7 @@ async function assertTeamSpawnAllowed(cwd, env = process.env) {
     }
 }
 function resolveJobsDir(env = process.env) {
-    return env.OMC_JOBS_DIR || join(homedir(), '.omc', 'team-jobs');
+    return env.OMC_JOBS_DIR || getGlobalOmcStatePath('team-jobs');
 }
 function resolveRuntimeCliPath(env = process.env) {
     if (env.OMC_RUNTIME_CLI_PATH) {

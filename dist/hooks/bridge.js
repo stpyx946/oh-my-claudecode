@@ -13,10 +13,12 @@
  * ```
  */
 import { pathToFileURL } from "url";
-import { existsSync, mkdirSync, readFileSync, unlinkSync, writeFileSync, } from "fs";
+import { existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync, } from "fs";
 import { dirname, join } from "path";
 import { resolveToWorktreeRoot, getOmcRoot } from "../lib/worktree-paths.js";
+import { writeModeState } from "../lib/mode-state-io.js";
 import { formatOmcCliInvocation } from "../utils/omc-cli-rendering.js";
+import { createSwallowedErrorLogger } from "../lib/swallowed-error.js";
 // Hot-path imports: needed on every/most hook invocations (keyword-detector, pre/post-tool-use)
 import { removeCodeBlocks, getAllKeywordsWithSizeCheck, applyRalplanGate, sanitizeForKeywordDetection, NON_LATIN_SCRIPT_PATTERN, } from "./keyword-detector/index.js";
 import { processOrchestratorPreTool, processOrchestratorPostTool, } from "./omc-orchestrator/index.js";
@@ -72,6 +74,13 @@ const TEAM_STAGE_ALIASES = {
 const BACKGROUND_AGENT_ID_PATTERN = /agentId:\s*([a-zA-Z0-9_-]+)/;
 const TASK_OUTPUT_ID_PATTERN = /<task_id>([^<]+)<\/task_id>/i;
 const TASK_OUTPUT_STATUS_PATTERN = /<status>([^<]+)<\/status>/i;
+const SAFE_SESSION_ID_PATTERN = /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,255}$/;
+const MODE_CONFIRMATION_SKILL_MAP = {
+    ralph: ["ralph", "ultrawork"],
+    ultrawork: ["ultrawork"],
+    autopilot: ["autopilot"],
+    ralplan: ["ralplan"],
+};
 function getExtraField(input, key) {
     return input[key];
 }
@@ -105,6 +114,91 @@ function taskLaunchDidFail(toolOutput) {
     }
     const normalized = toolOutput.toLowerCase();
     return normalized.includes("error") || normalized.includes("failed");
+}
+function getModeStatePaths(directory, modeName, sessionId) {
+    const stateDir = join(getOmcRoot(directory), "state");
+    const safeSessionId = typeof sessionId === "string" && SAFE_SESSION_ID_PATTERN.test(sessionId)
+        ? sessionId
+        : undefined;
+    return [
+        safeSessionId ? join(stateDir, "sessions", safeSessionId, `${modeName}-state.json`) : null,
+        join(stateDir, `${modeName}-state.json`),
+    ].filter((statePath) => Boolean(statePath));
+}
+function updateModeAwaitingConfirmation(directory, modeName, sessionId, awaitingConfirmation) {
+    for (const statePath of getModeStatePaths(directory, modeName, sessionId)) {
+        if (!existsSync(statePath)) {
+            continue;
+        }
+        try {
+            const state = JSON.parse(readFileSync(statePath, "utf-8"));
+            if (!state || typeof state !== "object") {
+                continue;
+            }
+            if (awaitingConfirmation) {
+                state.awaiting_confirmation = true;
+            }
+            else if (state.awaiting_confirmation === true) {
+                delete state.awaiting_confirmation;
+            }
+            else {
+                continue;
+            }
+            const tmpPath = `${statePath}.${process.pid}.${Date.now()}.tmp`;
+            writeFileSync(tmpPath, JSON.stringify(state, null, 2));
+            renameSync(tmpPath, statePath);
+        }
+        catch {
+            // Best-effort state sync only.
+        }
+    }
+}
+function markModeAwaitingConfirmation(directory, sessionId, ...modeNames) {
+    for (const modeName of modeNames) {
+        updateModeAwaitingConfirmation(directory, modeName, sessionId, true);
+    }
+}
+function confirmSkillModeStates(directory, skillName, sessionId) {
+    for (const modeName of MODE_CONFIRMATION_SKILL_MAP[skillName] ?? []) {
+        updateModeAwaitingConfirmation(directory, modeName, sessionId, false);
+    }
+}
+function getSkillInvocationArgs(toolInput) {
+    if (!toolInput || typeof toolInput !== "object") {
+        return "";
+    }
+    const input = toolInput;
+    const candidates = [
+        input.args,
+        input.arguments,
+        input.argument,
+        input.skill_args,
+        input.skillArgs,
+        input.prompt,
+        input.description,
+        input.input,
+    ];
+    return candidates.find((value) => typeof value === "string" && value.trim().length > 0)?.trim() ?? "";
+}
+function isConsensusPlanningSkillInvocation(skillName, toolInput) {
+    if (!skillName) {
+        return false;
+    }
+    if (skillName === "ralplan") {
+        return true;
+    }
+    if (skillName !== "omc-plan" && skillName !== "plan") {
+        return false;
+    }
+    return getSkillInvocationArgs(toolInput).toLowerCase().includes("--consensus");
+}
+function activateRalplanState(directory, sessionId) {
+    writeModeState("ralplan", {
+        active: true,
+        session_id: sessionId,
+        current_phase: "ralplan",
+        started_at: new Date().toISOString(),
+    }, directory, sessionId);
 }
 function readTeamStagedState(directory, sessionId) {
     const stateDir = join(getOmcRoot(directory), "state");
@@ -447,7 +541,10 @@ async function processKeywordDetector(input) {
                 }
                 // Activate ralph state which also auto-activates ultrawork
                 const hook = createRalphLoopHook(directory);
-                hook.startLoop(sessionId, cleanPrompt, criticMode ? { criticMode } : undefined);
+                const started = hook.startLoop(sessionId, cleanPrompt, criticMode ? { criticMode } : undefined);
+                if (started) {
+                    markModeAwaitingConfirmation(directory, sessionId, 'ralph', 'ultrawork');
+                }
                 messages.push(RALPH_MESSAGE);
                 break;
             }
@@ -455,7 +552,10 @@ async function processKeywordDetector(input) {
                 // Lazy-load ultrawork module
                 const { activateUltrawork } = await import("./ultrawork/index.js");
                 // Activate persistent ultrawork state
-                activateUltrawork(promptText, sessionId, directory);
+                const activated = activateUltrawork(promptText, sessionId, directory);
+                if (activated) {
+                    markModeAwaitingConfirmation(directory, sessionId, 'ultrawork');
+                }
                 messages.push(ULTRAWORK_MESSAGE);
                 break;
             }
@@ -578,13 +678,14 @@ async function processPersistentMode(input) {
                 const stateDir = join(getOmcRoot(directory), "state");
                 if (shouldSendIdleNotification(stateDir, sessionId)) {
                     recordIdleNotificationSent(stateDir, sessionId);
+                    const logSessionIdleNotifyFailure = createSwallowedErrorLogger('hooks.bridge session-idle notification failed');
                     import("../notifications/index.js")
                         .then(({ notify }) => notify("session-idle", {
                         sessionId,
                         projectPath: directory,
                         profileName: process.env.OMC_NOTIFY_PROFILE,
-                    }).catch(() => { }))
-                        .catch(() => { });
+                    }).catch(logSessionIdleNotifyFailure))
+                        .catch(logSessionIdleNotifyFailure);
                 }
             }
             // IMPORTANT: Do NOT clean up reply-listener/session-registry on Stop hooks.
@@ -657,13 +758,14 @@ async function processSessionStart(input) {
     initSilentAutoUpdate();
     // Send session-start notification (non-blocking, swallows errors)
     if (sessionId) {
+        const logSessionStartNotifyFailure = createSwallowedErrorLogger('hooks.bridge session-start notification failed');
         import("../notifications/index.js")
             .then(({ notify }) => notify("session-start", {
             sessionId,
             projectPath: directory,
             profileName: process.env.OMC_NOTIFY_PROFILE,
-        }).catch(() => { }))
-            .catch(() => { });
+        }).catch(logSessionStartNotifyFailure))
+            .catch(logSessionStartNotifyFailure);
         // Wake OpenClaw gateway for session-start (non-blocking)
         _openclaw.wake("session-start", { sessionId, projectPath: directory });
     }
@@ -859,14 +961,15 @@ export function dispatchAskUserQuestionNotification(sessionId, directory, toolIn
         .map((q) => q.question || "")
         .filter(Boolean)
         .join("; ") || "User input requested";
+    const logAskUserQuestionNotifyFailure = createSwallowedErrorLogger('hooks.bridge ask-user-question notification failed');
     import("../notifications/index.js")
         .then(({ notify }) => notify("ask-user-question", {
         sessionId,
         projectPath: directory,
         question: questionText,
         profileName: process.env.OMC_NOTIFY_PROFILE,
-    }).catch(() => { }))
-        .catch(() => { });
+    }).catch(logAskUserQuestionNotifyFailure))
+        .catch(logAskUserQuestionNotifyFailure);
 }
 /** @internal Object wrapper so tests can spy on the dispatch call. */
 export const _notify = {
@@ -884,9 +987,10 @@ export const _openclaw = {
     wake: (event, context) => {
         if (process.env.OMC_OPENCLAW !== "1")
             return;
+        const logOpenClawWakeFailure = createSwallowedErrorLogger(`hooks.bridge openclaw wake failed for ${event}`);
         import("../openclaw/index.js")
-            .then(({ wakeOpenClaw }) => wakeOpenClaw(event, context).catch(() => { }))
-            .catch(() => { });
+            .then(({ wakeOpenClaw }) => wakeOpenClaw(event, context).catch(logOpenClawWakeFailure))
+            .catch(logOpenClawWakeFailure);
     },
 };
 /**
@@ -1036,9 +1140,13 @@ function processPreToolUse(input) {
             // the Stop hook in short-lived processes.
             try {
                 writeSkillActiveState(directory, skillName, input.sessionId, rawSkillName);
+                confirmSkillModeStates(directory, skillName, input.sessionId);
+                if (isConsensusPlanningSkillInvocation(skillName, input.toolInput)) {
+                    activateRalplanState(directory, input.sessionId);
+                }
             }
             catch {
-                // Skill-state write is best-effort; don't fail the hook on error.
+                // Skill-state/state-sync writes are best-effort; don't fail the hook on error.
             }
         }
     }
@@ -1050,6 +1158,7 @@ function processPreToolUse(input) {
         const agentName = agentType?.includes(":")
             ? agentType.split(":").pop()
             : agentType;
+        const logAgentCallNotifyFailure = createSwallowedErrorLogger('hooks.bridge agent-call notification failed');
         import("../notifications/index.js")
             .then(({ notify }) => notify("agent-call", {
             sessionId: input.sessionId,
@@ -1057,8 +1166,8 @@ function processPreToolUse(input) {
             agentName,
             agentType,
             profileName: process.env.OMC_NOTIFY_PROFILE,
-        }).catch(() => { }))
-            .catch(() => { });
+        }).catch(logAgentCallNotifyFailure))
+            .catch(logAgentCallNotifyFailure);
     }
     // Warn about pkill -f self-termination risk (issue #210)
     // Matches: pkill -f, pkill -9 -f, pkill --full, etc.

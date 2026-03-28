@@ -2,16 +2,23 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
 import { homedir } from 'os';
 import { dirname, join } from 'path';
 import { getConfigDir } from '../utils/config-dir.js';
+import { getGlobalOmcConfigPath, getGlobalOmcConfigCandidates, getGlobalOmcStatePath, getGlobalOmcStateCandidates, } from '../utils/paths.js';
 const MANAGED_START = '# BEGIN OMC MANAGED MCP REGISTRY';
 const MANAGED_END = '# END OMC MANAGED MCP REGISTRY';
-function getOmcHomeDir() {
-    return process.env.OMC_HOME?.trim() || join(homedir(), '.omc');
-}
 export function getUnifiedMcpRegistryPath() {
-    return process.env.OMC_MCP_REGISTRY_PATH?.trim() || join(getOmcHomeDir(), 'mcp-registry.json');
+    return process.env.OMC_MCP_REGISTRY_PATH?.trim() || getGlobalOmcConfigPath('mcp-registry.json');
 }
 function getUnifiedMcpRegistryStatePath() {
-    return join(getOmcHomeDir(), 'mcp-registry-state.json');
+    return getGlobalOmcStatePath('mcp-registry-state.json');
+}
+function getUnifiedMcpRegistryPathCandidates() {
+    if (process.env.OMC_MCP_REGISTRY_PATH?.trim()) {
+        return [process.env.OMC_MCP_REGISTRY_PATH.trim()];
+    }
+    return getGlobalOmcConfigCandidates('mcp-registry.json');
+}
+function getUnifiedMcpRegistryStatePathCandidates() {
+    return getGlobalOmcStateCandidates('mcp-registry-state.json');
 }
 export function getClaudeMcpConfigPath() {
     if (process.env.CLAUDE_MCP_CONFIG_PATH?.trim()) {
@@ -92,19 +99,21 @@ function ensureParentDir(path) {
     }
 }
 function readManagedServerNames() {
-    const statePath = getUnifiedMcpRegistryStatePath();
-    if (!existsSync(statePath)) {
-        return [];
+    for (const statePath of getUnifiedMcpRegistryStatePathCandidates()) {
+        if (!existsSync(statePath)) {
+            continue;
+        }
+        try {
+            const state = JSON.parse(readFileSync(statePath, 'utf-8'));
+            return Array.isArray(state.managedServers)
+                ? state.managedServers.filter((item) => typeof item === 'string').sort((a, b) => a.localeCompare(b))
+                : [];
+        }
+        catch {
+            return [];
+        }
     }
-    try {
-        const state = JSON.parse(readFileSync(statePath, 'utf-8'));
-        return Array.isArray(state.managedServers)
-            ? state.managedServers.filter((item) => typeof item === 'string').sort((a, b) => a.localeCompare(b))
-            : [];
-    }
-    catch {
-        return [];
-    }
+    return [];
 }
 function writeManagedServerNames(serverNames) {
     const statePath = getUnifiedMcpRegistryStatePath();
@@ -121,14 +130,16 @@ function bootstrapRegistryFromClaude(settings, registryPath) {
     return registry;
 }
 function loadOrBootstrapRegistry(settings) {
-    const registryPath = getUnifiedMcpRegistryPath();
-    if (existsSync(registryPath)) {
-        return {
-            registry: loadRegistryFromDisk(registryPath),
-            registryExists: true,
-            bootstrappedFromClaude: false,
-        };
+    for (const registryPath of getUnifiedMcpRegistryPathCandidates()) {
+        if (existsSync(registryPath)) {
+            return {
+                registry: loadRegistryFromDisk(registryPath),
+                registryExists: true,
+                bootstrappedFromClaude: false,
+            };
+        }
     }
+    const registryPath = getUnifiedMcpRegistryPath();
     const registry = bootstrapRegistryFromClaude(settings, registryPath);
     return {
         registry,
