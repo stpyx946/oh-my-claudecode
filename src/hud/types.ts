@@ -507,7 +507,7 @@ export const DEFAULT_ELEMENT_ORDER: Required<LayoutConfig> = {
     'skills', 'lastSkill', 'contextBar', 'agents', 'background',
     'callCounts', 'lastTool', 'sessionSummary',
   ],
-  detail: ['missionBoard', 'contextWarning', 'todos'],
+  detail: ['missionBoard', 'agents', 'contextWarning', 'todos'],
 };
 
 export interface HudConfig {
