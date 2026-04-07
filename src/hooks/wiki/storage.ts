@@ -32,7 +32,8 @@ import {
 const WIKI_DIR = 'wiki';
 const INDEX_FILE = 'index.md';
 const LOG_FILE = 'log.md';
-const RESERVED_FILES = new Set([INDEX_FILE, LOG_FILE]);
+const ENVIRONMENT_FILE = 'environment.md';
+const RESERVED_FILES = new Set([INDEX_FILE, LOG_FILE, ENVIRONMENT_FILE]);
 
 // ============================================================================
 // Path helpers
@@ -370,9 +371,22 @@ export function appendLog(root: string, entry: WikiLogEntry): void {
 
 /** Convert a title to a filename slug. */
 export function titleToSlug(title: string): string {
-  return title
+  const base = title
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '')
-    .slice(0, 64) + '.md';
+    .slice(0, 64);
+
+  if (!base) {
+    // Non-ASCII-only titles (CJK, Cyrillic, etc.) produce an empty base.
+    // Generate a deterministic hash-based fallback to avoid all such titles
+    // colliding on the same ".md" hidden dotfile.
+    let hash = 0;
+    for (let i = 0; i < title.length; i++) {
+      hash = ((hash << 5) - hash + title.charCodeAt(i)) | 0;
+    }
+    return `page-${Math.abs(hash).toString(16).padStart(8, '0')}.md`;
+  }
+
+  return `${base}.md`;
 }
