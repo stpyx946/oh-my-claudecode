@@ -137,7 +137,8 @@ async function main() {
           if (pa.pre === pb.pre) return 0;
           if (pa.pre === "") return -1;
           if (pb.pre === "") return 1;
-          return pb.pre.localeCompare(pa.pre);
+          // numeric: true so `rc.10` sorts above `rc.2`.
+          return pb.pre.localeCompare(pa.pre, undefined, { numeric: true });
         };
         const sortedVersions = [...versions].sort(compareSemverDesc);
         const latestInstalledVersion = sortedVersions[0];

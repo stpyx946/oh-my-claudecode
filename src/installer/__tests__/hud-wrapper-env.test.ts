@@ -219,6 +219,35 @@ describe('HUD wrapper — OMC_PLUGIN_ROOT resolution', () => {
     expect(result.stdout).not.toContain('FROM_PRERELEASE_1_0_0_ALPHA');
   });
 
+  it('case 7: cache step orders prerelease tags numerically — rc.10 beats rc.2', () => {
+    const s = staged!;
+    const configDir = join(s.dir, 'isolated-config-pre-numeric');
+    const cacheBase = join(configDir, 'plugins', 'cache', 'omc', 'oh-my-claudecode');
+    // Two prerelease-only versions with the same [M.m.p]. A naive localeCompare
+    // without { numeric: true } places "rc.2" above "rc.10".
+    const rc10Dir = join(cacheBase, '1.0.0-rc.10', 'dist', 'hud');
+    const rc2Dir = join(cacheBase, '1.0.0-rc.2', 'dist', 'hud');
+    mkdirSync(rc10Dir, { recursive: true });
+    mkdirSync(rc2Dir, { recursive: true });
+    writeFileSync(
+      join(rc10Dir, 'index.js'),
+      'process.stdout.write("FROM_RC_10\\n");\n',
+      'utf8',
+    );
+    writeFileSync(
+      join(rc2Dir, 'index.js'),
+      'process.stdout.write("FROM_RC_2\\n");\n',
+      'utf8',
+    );
+
+    const result = runWrapper(s.wrapperPath, scrubbedEnv({
+      CLAUDE_CONFIG_DIR: configDir,
+    }));
+    expect(result.status).toBe(0);
+    expect(result.stdout).toContain('FROM_RC_10');
+    expect(result.stdout).not.toContain('FROM_RC_2');
+  });
+
   it('case 5: symmetry — installer source and plugin-setup.mjs both produce identical wrapper text', async () => {
     // Both consumers must read the same byte-for-byte template body.
     const txt = readFileSync(TEMPLATE_TXT, 'utf8');
