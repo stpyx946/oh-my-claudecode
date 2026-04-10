@@ -505,7 +505,11 @@ export async function createTeamSession(
   const multiplexerContext = detectTeamMultiplexerContext();
   const inTmux = multiplexerContext === 'tmux';
   const useDedicatedWindow = Boolean(options.newWindow && inTmux);
-  validateTmux(inTmux);
+  if (inTmux) {
+    // Active tmux context is authoritative; skip the tmux -V probe to avoid
+    // false negatives when the binary is temporarily unavailable on PATH.
+    validateTmux(true);
+  }
 
   // Prefer the invoking pane from environment to avoid focus races when users
   // switch tmux windows during startup (issue #966).
