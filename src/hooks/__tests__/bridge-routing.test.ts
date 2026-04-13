@@ -1264,7 +1264,7 @@ Read src/hooks/bridge.ts first.`,
       const tempDir = mkdtempSync(join(tmpdir(), 'bridge-858-permission-camel-'));
       try {
         mkdirSync(join(tempDir, 'src', '__tests__'), { recursive: true });
-        mkdirSync(join(tempDir, '.git'), { recursive: true });
+        execFileSync('git', ['init'], { cwd: tempDir, stdio: 'pipe' });
         writeFileSync(join(tempDir, 'src', '__tests__', 'safe.test.ts'), 'test("x", () => {});\n');
 
         const input: HookInput = {
