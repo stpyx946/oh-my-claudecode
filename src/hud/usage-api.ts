@@ -77,6 +77,13 @@ interface UsageApiResponse {
   // Per-model quotas (flat structure at top level)
   seven_day_sonnet?: { utilization?: number; resets_at?: string };
   seven_day_opus?: { utilization?: number; resets_at?: string };
+  // Extra (metered) usage for Pro subscribers
+  extra_usage?: {
+    utilization?: number;
+    spent_usd?: number;
+    limit_usd?: number;
+    resets_at?: string;
+  };
 }
 
 interface ZaiQuotaResponse {
@@ -178,6 +185,9 @@ function readCache(source: 'anthropic' | 'zai'): UsageCache | null {
       }
       if (cache.data.monthlyResetsAt) {
         cache.data.monthlyResetsAt = new Date(cache.data.monthlyResetsAt as unknown as string);
+      }
+      if (cache.data.extraUsageResetsAt) {
+        cache.data.extraUsageResetsAt = new Date(cache.data.extraUsageResetsAt as unknown as string);
       }
     }
 
@@ -726,7 +736,7 @@ function clamp(v: number | undefined): number {
 /**
  * Parse API response into RateLimits
  */
-function parseUsageResponse(response: UsageApiResponse): RateLimits | null {
+export function parseUsageResponse(response: UsageApiResponse): RateLimits | null {
   const fiveHour = response.five_hour?.utilization;
   const sevenDay = response.seven_day?.utilization;
 
@@ -768,6 +778,19 @@ function parseUsageResponse(response: UsageApiResponse): RateLimits | null {
   if (opusSevenDay != null) {
     result.opusWeeklyPercent = clamp(opusSevenDay);
     result.opusWeeklyResetsAt = parseDate(opusResetsAt);
+  }
+
+  // Add extra (metered) usage if available (Pro subscribers with extra usage allocation)
+  const extra = response.extra_usage;
+  if (extra != null && extra.limit_usd != null && extra.limit_usd > 0) {
+    const spentUsd = extra.spent_usd ?? 0;
+    result.extraUsageSpentUsd = spentUsd;
+    result.extraUsageLimitUsd = extra.limit_usd;
+    // Use API-provided utilization when available; fall back to spent/limit ratio
+    result.extraUsagePercent = extra.utilization != null
+      ? clamp(extra.utilization)
+      : clamp((spentUsd / extra.limit_usd) * 100);
+    result.extraUsageResetsAt = parseDate(extra.resets_at);
   }
 
   return result;
