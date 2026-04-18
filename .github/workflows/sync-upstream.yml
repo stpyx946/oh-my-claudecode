@@ -1,0 +1,23 @@
+name: Sync upstream
+on:
+  schedule:
+    - cron: '0 0 * * *'
+  workflow_dispatch:
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: upstream
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Sync from upstream
+        run: |
+          git remote add upstream https://github.com/Yeachan-Heo/oh-my-claudecode.git
+          git fetch upstream
+          git reset --hard upstream/main
+          git push origin upstream --force
